@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PawDetect AI | Community Pet Identification</title>
+    <!-- Google Fonts: Plus Jakarta Sans for clean modern hierarchy -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- TensorFlow.js & Teachable Machine Image Library -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+
+    <style>
+        /* ==========================================================================
+           PRINCIPLES OF DESIGN APPLIED:
+           1. Contrast & Color Theory: Warm cream background (#FAF9F6) with deep 
+              charcoal text (#1E293B) and vibrant terracotta/teal accents.
+           2. Typography & Hierarchy: Distinct font scales and weights guide the eye.
+           3. Whitespace & Balance: Generous padding and symmetrical grid layouts.
+           4. Repetition & Unity: Consistent 16px border-radius, soft shadows, and 
+              pill-shaped badges across all components.
+           ========================================================================== */
+
+        :root {
+            --bg-primary: #FAF9F6;
+            --bg-card: #FFFFFF;
+            --text-main: #1E293B;
+            --text-muted: #64748B;
+            --accent-primary: #E07A5F; /* Warm Terracotta */
+            --accent-primary-hover: #D06346;
+            --accent-secondary: #3D5A80; /* Deep Slate Blue */
+            --accent-teal: #2A9D8F;
+            --border-subtle: #E2E8F0;
+            --shadow-soft: 0 10px 30px -5px rgba(30, 41, 59, 0.06);
+            --shadow-hover: 0 20px 40px -10px rgba(30, 41, 59, 0.12);
+            --radius-lg: 20px;
+            --radius-md: 12px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-main);
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Navigation Bar */
+        nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            max-width: 1140px;
+            margin: 0 auto;
+            padding: 1.5rem 2rem;
+        }
+
+        .logo {
+            font-weight: 800;
+            font-size: 1.35rem;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            text-decoration: none;
+        }
+
+        .logo span {
+            color: var(--accent-primary);
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+            list-style: none;
+        }
+
+        .nav-links a {
+            text-decoration: none;
+            color: var(--text-muted);
+            font-weight: 600;
+            font-size: 0.95rem;
+            transition: color 0.2s ease;
+        }
+
+        .nav-links a:hover {
+            color: var(--accent-primary);
+        }
+
+        /* Hero Section (Focal Point & Emphasis) */
+        .hero {
+            max-width: 850px;
+            margin: 2rem auto 3.5rem;
+            text-align: center;
+            padding: 0 1.5rem;
+        }
+
+        .badge {
+            display: inline-block;
+            background-color: rgba(224, 122, 95, 0.12);
+            color: var(--accent-primary);
+            font-weight: 700;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            padding: 0.45rem 1rem;
+            border-radius: 999px;
+            margin-bottom: 1.25rem;
+        }
+
+        h1 {
+            font-size: clamp(2.25rem, 5vw, 3.5rem);
+            font-weight: 800;
+            line-height: 1.15;
+            letter-spacing: -0.03em;
+            margin-bottom: 1.25rem;
+            color: var(--text-main);
+        }
+
+        .hero p {
+            font-size: 1.125rem;
+            color: var(--text-muted);
+            max-width: 640px;
+            margin: 0 auto;
+        }
+
+        /* Main Interactive AI Scanner Container (Balance & Alignment) */
+        .container {
+            max-width: 1140px;
+            margin: 0 auto;
+            padding: 0 2rem;
+        }
+
+        .scanner-card {
+            background: var(--bg-card);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-soft);
+            border: 1px solid var(--border-subtle);
+            padding: 2.5rem;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 3rem;
+            align-items: center;
+            margin-bottom: 5rem;
+        }
+
+        @media (max-width: 850px) {
+            .scanner-card {
+                grid-template-columns: 1fr;
+                padding: 1.75rem;
+            }
+            .nav-links {
+                display: none;
+            }
+        }
+
+        /* Left Side: Media Viewport */
+        .viewport-box {
+            background: #F1F5F9;
+            border: 2px dashed #CBD5E1;
+            border-radius: var(--radius-md);
+            aspect-ratio: 1 / 1;
+            max-height: 380px;
+            width: 100%;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
+            transition: border-color 0.3s ease;
+        }
+
+        .viewport-box.active {
+            border: 2px solid var(--accent-primary);
+            background: #0F172A;
+        }
+
+        #webcam-container canvas, #image-preview {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 10px;
+        }
+
+        #image-preview {
+            display: none;
+        }
+
+        .placeholder-text {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-muted);
+        }
+
+        .placeholder-icon {
+            font-size: 3rem;
+            margin-bottom: 0.75rem;
+            display: block;
+        }
+
+        /* Controls */
+        .controls {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1.25rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            font-family: inherit;
+            font-weight: 700;
+            font-size: 0.95rem;
+            padding: 0.85rem 1.5rem;
+            border-radius: var(--radius-md);
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-primary {
+            background-color: var(--accent-primary);
+            color: white;
+            box-shadow: 0 4px 14px rgba(224, 122, 95, 0.35);
+        }
+
+        .btn-primary:hover {
+            background-color: var(--accent-primary-hover);
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary {
+            background-color: #F1F5F9;
+            color: var(--text-main);
+        }
+
+        .btn-secondary:hover {
+            background-color: #E2E8F0;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        /* Right Side: Prediction Results & Visual Hierarchy */
+        .results-panel h2 {
+            font-size: 1.5rem;
+            font-weight: 800;
+            margin-bottom: 0.5rem;
+        }
+
+        .status-indicator {
+            font-size: 0.875rem;
+            color: var(--text-muted);
+            margin-bottom: 1.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .dot {
+            height: 8px;
+            width: 8px;
+            background-color: var(--accent-teal);
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+        .prediction-item {
+            margin-bottom: 1.25rem;
+        }
+
+        .prediction-header {
+            display: flex;
+            justify-content: space-between;
+            font-weight: 700;
+            margin-bottom: 0.45rem;
+            font-size: 1rem;
+        }
+
+        .progress-track {
+            width: 100%;
+            height: 14px;
+            background-color: #F1F5F9;
+            border-radius: 999px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background-color: var(--accent-secondary);
+            width: 0%;
+            border-radius: 999px;
+            transition: width 0.25s ease, background-color 0.25s ease;
+        }
+
+        .progress-fill.top-match {
+            background-color: var(--accent-primary);
+        }
+
+        /* Community Significance & Impact Sections (Proximity & Rhythm) */
+        .section-header {
+            text-align: center;
+            max-width: 700px;
+            margin: 0 auto 3rem;
+        }
+
+        .section-header h2 {
+            font-size: 2.15rem;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.75rem;
+        }
+
+        .section-header p {
+            color: var(--text-muted);
+            font-size: 1.05rem;
+        }
+
+        .grid-3 {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-bottom: 5.5rem;
+        }
+
+        .info-card {
+            background: var(--bg-card);
+            padding: 2rem;
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border-subtle);
+            box-shadow: var(--shadow-soft);
+            transition: transform 0.25s ease, box-shadow 0.25s ease;
+        }
+
+        .info-card:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--shadow-hover);
+        }
+
+        .icon-box {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            background: rgba(224, 122, 95, 0.12);
+            color: var(--accent-primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            margin-bottom: 1.25rem;
+        }
+
+        .info-card h3 {
+            font-size: 1.2rem;
+            font-weight: 700;
+            margin-bottom: 0.65rem;
+        }
+
+        .info-card p {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+        }
+
+        /* Impact Banner (Contrast & Emphasis) */
+        .impact-banner {
+            background: var(--accent-secondary);
+            color: white;
+            border-radius: var(--radius-lg);
+            padding: 3.5rem;
+            margin-bottom: 5rem;
+            display: grid;
+            grid-template-columns: 1.2fr 0.8fr;
+            gap: 2.5rem;
+            align-items: center;
+        }
+
+        @media (max-width: 850px) {
+            .impact-banner {
+                grid-template-columns: 1fr;
+                padding: 2rem;
+            }
+        }
+
+        .impact-banner h2 {
+            font-size: 2rem;
+            font-weight: 800;
+            margin-bottom: 1rem;
+            line-height: 1.2;
+        }
+
+        .impact-banner p {
+            color: #CBD5E1;
+            margin-bottom: 1.25rem;
+            font-size: 1.05rem;
+        }
+
+        .impact-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.25rem;
+        }
+
+        .stat-box {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 1.5rem;
+            border-radius: var(--radius-md);
+            backdrop-filter: blur(6px);
+        }
+
+        .stat-number {
+            font-size: 1.75rem;
+            font-weight: 800;
+            color: #FFD166;
+            display: block;
+            margin-bottom: 0.25rem;
+        }
+
+        .stat-label {
+            font-size: 0.85rem;
+            color: #E2E8F0;
+            font-weight: 500;
+        }
+
+        footer {
+            text-align: center;
+            padding: 2.5rem 1.5rem;
+            border-top: 1px solid var(--border-subtle);
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Navigation -->
+    <nav>
+        <a href="#" class="logo">🐾 PawDetect<span>AI</span></a>
+        <ul class="nav-links">
+            <li><a href="#classifier">AI Classifier</a></li>
+            <li><a href="#significance">Significance</a></li>
+            <li><a href="#impact">Community Impact</a></li>
+        </ul>
+    </nav>
+
+    <!-- Hero Section -->
+    <header class="hero">
+        <span class="badge">Computer Vision for Animal Welfare</span>
+        <h1>Instant Cat & Dog Classification for Smarter Communities</h1>
+        <p>Powered by Google Teachable Machine and TensorFlow.js, this browser-based AI tool helps local shelters, neighborhood watch groups, and pet owners rapidly identify and catalog stray or lost pets.</p>
+    </header>
+
+    <main class="container">
+        
+        <!-- Interactive AI Classifier Section -->
+        <section id="classifier" class="scanner-card">
+            <div>
+                <div class="viewport-box" id="viewport">
+                    <div class="placeholder-text" id="placeholder">
+                        <span class="placeholder-icon">📷</span>
+                        <strong>Ready to Scan</strong>
+                        <p style="font-size: 0.85rem; margin-top: 0.25rem;">Start your webcam or upload a photo of a cat or dog.</p>
+                    </div>
+                    <div id="webcam-container"></div>
+                    <img id="image-preview" alt="Uploaded pet preview" />
+                </div>
+
+                <div class="controls">
+                    <button class="btn btn-primary" id="webcam-btn" onclick="initWebcam()">
+                        🎥 Start Live Camera
+                    </button>
+                    <label for="file-upload" class="btn btn-secondary">
+                        📁 Upload Photo
+                    </label>
+                    <input id="file-upload" type="file" accept="image/*" onchange="handleImageUpload(event)" />
+                </div>
+            </div>
+
+            <div class="results-panel">
+                <h2>Classification Results</h2>
+                <div class="status-indicator">
+                    <span class="dot" id="status-dot"></span>
+                    <span id="status-text">Model Ready (Client-Side Processing)</span>
+                </div>
+
+                <div id="label-container">
+                    <!-- Dynamic prediction bars will appear here -->
+                    <div class="prediction-item">
+                        <div class="prediction-header">
+                            <span>Waiting for input...</span>
+                            <span>0%</span>
+                        </div>
+                        <div class="progress-track">
+                            <div class="progress-fill" style="width: 0%;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <p style="font-size: 0.82rem; color: var(--text-muted); margin-top: 1.5rem; background: #F8FAFC; padding: 0.85rem; border-radius: 8px; border: 1px solid var(--border-subtle);">
+                    <strong>Privacy Guarantee:</strong> All image recognition runs locally inside your browser. No photos or camera feeds are ever uploaded to an external server.
+                </p>
+            </div>
+        </section>
+
+        <!-- Requirement 1: Significance to the Community -->
+        <section id="significance">
+            <div class="section-header">
+                <h2>Significance to the Community</h2>
+                <p>Bridging everyday citizens with accessible artificial intelligence to improve neighborhood animal care and civic responsiveness.</p>
+            </div>
+
+            <div class="grid-3">
+                <article class="info-card">
+                    <div class="icon-box">🏠</div>
+                    <h3>Faster Lost-Pet Reunions</h3>
+                    <p>When community members spot a wandering animal, automated classification streamlines reporting to neighborhood boards and municipal pounds with accurate, structured data.</p>
+                </article>
+
+                <article class="info-card">
+                    <div class="icon-box">🏥</div>
+                    <h3>Streamlined Shelter Intake</h3>
+                    <p>Understaffed animal shelters and rescue volunteers can quickly sort, log, and organize incoming feline and canine records without expensive proprietary software.</p>
+                </article>
+
+                <article class="info-card">
+                    <div class="icon-box">🎓</div>
+                    <h3>Accessible AI Literacy</h3>
+                    <p>Hosted openly on GitHub, this project demonstrates how students and local residents can build practical machine learning tools that solve real-world problems.</p>
+                </article>
+            </div>
+        </section>
+
+        <!-- Requirement 4: Community Impact -->
+        <section id="impact" class="impact-banner">
+            <div>
+                <h2>Measurable Community Impact</h2>
+                <p>Stray animal overpopulation and lost pets place heavy operational strain on local barangays, animal control units, and volunteer rescue groups. By lowering the technical barrier to automated image sorting, PawDetect AI empowers neighborhoods to respond faster and more compassionately.</p>
+                <p style="margin-bottom: 0;">Because the application runs entirely on free, open web standards, any community group with a smartphone or laptop can deploy it immediately—zero installation or budget required.</p>
+            </div>
+
+            <div class="impact-stats">
+                <div class="stat-box">
+                    <span class="stat-number">100%</span>
+                    <span class="stat-label">Free & Open-Source via GitHub Pages</span>
+                </div>
+                <div class="stat-box">
+                    <span class="stat-number">&lt; 50ms</span>
+                    <span class="stat-label">Real-Time On-Device Inference Speed</span>
+                </div>
+                <div class="stat-box">
+                    <span class="stat-number">Zero</span>
+                    <span class="stat-label">Cloud Data Stored (Full User Privacy)</span>
+                </div>
+                <div class="stat-box">
+                    <span class="stat-number">24/7</span>
+                    <span class="stat-label">Accessible for Volunteers & Citizens</span>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <footer>
+        <p>Built with Google Teachable Machine & TensorFlow.js • Hosted on GitHub Pages</p>
+    </footer>
+
+    <!-- Teachable Machine Script -->
+    <script type="text/javascript">
+        // Your specific Teachable Machine Model URL
+        const URL = "https://teachablemachine.withgoogle.com/models/IMWL4Wy6G/";
+
+        let model, webcam, labelContainer, maxPredictions;
+        let isWebcamRunning = false;
+
+        // Load the model on page load so it's ready immediately
+        async function loadModel() {
+            const statusText = document.getElementById("status-text");
+            statusText.innerText = "Loading AI Model...";
+            
+            const modelURL = URL + "model.json";
+            const metadataURL = URL + "metadata.json";
+
+            model = await tmImage.load(modelURL, metadataURL);
+            maxPredictions = model.getTotalClasses();
+
+            // Build initial empty progress bars based on model classes
+            labelContainer = document.getElementById("label-container");
+            labelContainer.innerHTML = "";
+            const classLabels = model.getClassLabels();
+
+            for (let i = 0; i < maxPredictions; i++) {
+                const item = document.createElement("div");
+                item.className = "prediction-item";
+                item.innerHTML = `
+                    <div class="prediction-header">
+                        <span class="class-name">${classLabels[i]}</span>
+                        <span class="class-prob">0%</span>
+                    </div>
+                    <div class="progress-track">
+                        <div class="progress-fill"></div>
+                    </div>
+                `;
+                labelContainer.appendChild(item);
+            }
+            statusText.innerText = "Model Loaded & Ready";
+        }
+
+        // Initialize Webcam
+        async function initWebcam() {
+            if (!model) await loadModel();
+
+            // Hide uploaded image if present
+            document.getElementById("image-preview").style.display = "none";
+            document.getElementById("placeholder").style.display = "none";
+            document.getElementById("viewport").classList.add("active");
+
+            const webcamContainer = document.getElementById("webcam-container");
+            webcamContainer.innerHTML = "";
+
+            const flip = true;
+            webcam = new tmImage.Webcam(380, 380, flip);
+            await webcam.setup();
+            await webcam.play();
+            isWebcamRunning = true;
+
+            webcamContainer.appendChild(webcam.canvas);
+            document.getElementById("status-text").innerText = "Live Camera Active";
+            window.requestAnimationFrame(loop);
+        }
+
+        async function loop() {
+            if (!isWebcamRunning) return;
+            webcam.update();
+            await predict(webcam.canvas);
+            window.requestAnimationFrame(loop);
+        }
+
+        // Handle Static Image Upload
+        async function handleImageUpload(event) {
+            if (!model) await loadModel();
+
+            // Stop webcam if running
+            if (isWebcamRunning && webcam) {
+                await webcam.stop();
+                isWebcamRunning = false;
+                document.getElementById("webcam-container").innerHTML = "";
+            }
+
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const imgElement = document.getElementById("image-preview");
+                imgElement.src = e.target.result;
+                imgElement.style.display = "block";
+                document.getElementById("placeholder").style.display = "none";
+                document.getElementById("viewport").classList.add("active");
+
+                imgElement.onload = async function() {
+                    document.getElementById("status-text").innerText = "Image Analyzed";
+                    await predict(imgElement);
+                };
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // Run Prediction and Update UI Bars
+        async function predict(inputElement) {
+            const prediction = await model.predict(inputElement);
+            const items = labelContainer.getElementsByClassName("prediction-item");
+
+            // Find highest probability to highlight the winning class
+            let highestProb = 0;
+            let highestIndex = 0;
+            for (let i = 0; i < maxPredictions; i++) {
+                if (prediction[i].probability > highestProb) {
+                    highestProb = prediction[i].probability;
+                    highestIndex = i;
+                }
+            }
+
+            for (let i = 0; i < maxPredictions; i++) {
+                const percentage = (prediction[i].probability * 100).toFixed(1) + "%";
+                const item = items[i];
+                item.querySelector(".class-name").innerText = prediction[i].className;
+                item.querySelector(".class-prob").innerText = percentage;
+                
+                const bar = item.querySelector(".progress-fill");
+                bar.style.width = percentage;
+
+                if (i === highestIndex && prediction[i].probability > 0.5) {
+                    bar.classList.add("top-match");
+                } else {
+                    bar.classList.remove("top-match");
+                }
+            }
+        }
+
+        // Preload model when page opens
+        window.addEventListener("DOMContentLoaded", loadModel);
+    </script>
+</body>
+</html>
